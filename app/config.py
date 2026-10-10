@@ -23,15 +23,30 @@ def _get_groq_api_key() -> str:
         return ""
 
 
+def _get_setting(name: str, default: str = "") -> str:
+    value = os.getenv(name, "").strip()
+    if value:
+        return value
+    try:
+        return str(st.secrets.get(name, default)).strip()
+    except FileNotFoundError:
+        return default
+
+
 @dataclass(frozen=True)
 class AppConfig:
-    page_title: str = "AI Business Intelligence"
+    page_title: str = "Dukaan Dost | Shop Dashboard"
     page_icon: str = "📊"
     layout: str = "wide"
 
     groq_api_key: str = field(default_factory=_get_groq_api_key)
     groq_model: str = "openai/gpt-oss-20b"
     groq_temperature: float = 0.4
+
+    mongodb_uri: str = field(default_factory=lambda: _get_setting("MONGODB_URI"))
+    mongodb_database: str = field(
+        default_factory=lambda: _get_setting("MONGODB_DATABASE", "dukaan_dost")
+    )
 
     model_dir: Path = ROOT_DIR / "model"
     reports_dir: Path = ROOT_DIR / "reports"

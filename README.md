@@ -2,6 +2,8 @@
 
 A shop-focused business intelligence dashboard built with Streamlit for small and medium businesses. It helps shopkeepers understand sales, profit, regional performance, discount impact, and forecast ideas using simple, friendly language and Indian currency formatting.
 
+> **New here?** Start with the step-by-step [User Guide](USER_GUIDE.md) for CSV requirements, example data, every dashboard feature, and common questions.
+
 ## Why this project matters
 
 This app is designed for a real-world shop environment where owners may have different levels of technical comfort. The interface uses:
@@ -25,6 +27,9 @@ This app is designed for a real-world shop environment where owners may have dif
 - AI-powered summary tips when a valid Groq API key is configured
 - PDF report export for shop summaries
 - Language support for English and major Indian languages
+- Email/password registration and login
+- MongoDB Atlas storage for each user's saved sales CSV
+- Guest access to the example dashboard without an account
 
 ## Tech stack
 
@@ -44,6 +49,7 @@ This app is designed for a real-world shop environment where owners may have dif
 AI-Powered Business Intelligence & Forecasting Platform/
 ├── app/
 │   ├── app.py
+│   ├── database.py
 │   ├── charts.py
 │   ├── components.py
 │   ├── config.py
@@ -54,6 +60,7 @@ AI-Powered Business Intelligence & Forecasting Platform/
 │   ├── cleaned/
 │   │   ├── superstore_synthetic.csv
 │   │   └── superstore_cleaned.csv
+│   ├── shop_sales_template.csv
 │   └── raw/
 │       ├── superstore.csv
 │       └── reviews.csv
@@ -71,10 +78,9 @@ AI-Powered Business Intelligence & Forecasting Platform/
 ├── .gitignore
 ├── requirements.txt
 ├── README.md
+├── USER_GUIDE.md
 ├── LICENSE
-├── AI_Business_Report.pdf
 ├── package-lock.json
-└── api key.txt
 ```
 
 ## Quick start
@@ -102,16 +108,42 @@ Use either the existing `venv` or the new `.venv`; do not create/activate a virt
 
 ## Local environment variables
 
-Create a `.env` file in the project root using the example file.
+Create a `.env` file in the project root using `.env.example` as a template. Replace the sample values; do not commit the real `.env`.
 
 ```env
-GROQ_API_KEY=your_api_key_here
+GROQ_API_KEY=your_groq_api_key_here
+MONGODB_URI=mongodb+srv://username:password@cluster0.example.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DATABASE=dukaan_dost
 ```
 
 Important:
 - Do not commit `.env` to GitHub
 - Keep API keys secure
 - Store secrets only in your local environment or deployment platform secret manager
+- The MongoDB URI contains a database password. URL-encode special characters in the password.
+
+## MongoDB Atlas setup
+
+Accounts and saved datasets require a reachable MongoDB Atlas cluster:
+
+1. Create an Atlas project and a database cluster.
+2. Create a dedicated database user with a strong password. Do not use your Atlas website login as the database user.
+3. Configure the Atlas network access list to allow connections from the deployment. Restrict access where possible; if broad access is required by the hosting platform, use a dedicated least-privilege database user and a strong password.
+4. Copy the cluster's `mongodb+srv://` connection string and replace its username/password placeholders.
+5. Set `MONGODB_URI` and `MONGODB_DATABASE` in your local `.env` or Streamlit Cloud app secrets.
+6. Restart/reboot the app after changing secrets. The app checks the connection and creates its indexes automatically.
+
+Streamlit Cloud **App settings → Secrets** example:
+
+```toml
+MONGODB_URI = "mongodb+srv://<database-user>:<password>@<cluster-host>/?retryWrites=true&w=majority"
+MONGODB_DATABASE = "dukaan_dost"
+GROQ_API_KEY = "your_groq_api_key_here"
+```
+
+Replace the example values before saving. Keep this information private. The app hashes passwords with PBKDF2-HMAC-SHA256; it does not store raw account passwords. Each saved row and dataset is scoped to the signed-in account. Users can replace or delete their saved dataset from the MongoDB Atlas page inside the app.
+
+The hosted dashboard requires MongoDB Atlas to be configured before users can sign in. If no Atlas URI is configured, it shows setup instructions instead of opening the protected dashboard.
 
 ## Deployment guide
 
@@ -123,9 +155,11 @@ Important:
 4. Create a new app
 5. Connect the repository
 6. Set the main file path to `app/app.py`
-7. Open the app's **Settings → Secrets** and add:
+7. Open **App settings → Secrets** and add:
 
    ```toml
+   MONGODB_URI = "mongodb+srv://<database-user>:<password>@<cluster-host>/?retryWrites=true&w=majority"
+   MONGODB_DATABASE = "dukaan_dost"
    GROQ_API_KEY = "your_groq_api_key_here"
    ```
 
@@ -141,9 +175,10 @@ streamlit run app/app.py
 
 ## Notes on data and privacy
 
-This project was designed for shop analytics and uses a synthetic demo dataset for safe public sharing. If you upload your own business CSV file, the app processes it locally in your browser session.
+This project was designed for shop analytics and uses a synthetic demo dataset for safe public sharing. If you upload your own business CSV file to the hosted app, it is sent to the Streamlit app server for processing; it is not processed only in your browser. When you explicitly save it, its rows are stored in your configured MongoDB Atlas database. See the [User Guide](USER_GUIDE.md) for details about data handling.
 
-- No upload is sent to the project repository
+- Uploaded data is not sent to the GitHub repository, but the hosted app server processes it
+- Saved data is stored in the MongoDB Atlas database configured by the app owner
 - AI suggestions require a valid Groq API key
 - Public repos should use synthetic/demo data by default
 

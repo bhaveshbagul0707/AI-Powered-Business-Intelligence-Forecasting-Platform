@@ -11,7 +11,24 @@ import streamlit as st
 import charts
 from components import hero, inject_theme, kpi_row, section_header
 from config import CONFIG, ROOT_DIR
+from database import (
+    AccountNotFoundError,
+    AtlasNotConfiguredError,
+    DatasetCleanupError,
+    DatasetValidationError,
+    EmailAlreadyRegisteredError,
+    InvalidCredentialsError,
+    authenticate_user,
+    delete_active_dataset,
+    get_active_dataset_metadata,
+    get_database,
+    get_user,
+    load_sales_dataset,
+    register_user,
+    save_sales_dataset,
+)
 from formatting import indian_currency, indian_number
+from pymongo.errors import PyMongoError
 from translations import LANGUAGES, month_names, report_tips, translate as tr
 from utils import ask_genai, generate_pdf
 
@@ -81,7 +98,127 @@ def show_chart(figure) -> None:
         plt.close(figure)
 
 
-def render_sidebar(data: pd.DataFrame) -> tuple[str, pd.DataFrame, str]:
+def render_auth_page() -> None:
+    st.markdown(
+        "<div style='max-width:680px;margin:5vh auto 0'>",
+        unsafe_allow_html=True,
+    )
+    st.title("🛍️ Dukaan Dost")
+    st.subheader("Your shop's numbers, made easier.")
+    st.write("Sign in to keep your shop data private to your account.")
+    if st.button("Continue as guest with example data", width="stretch"):
+        st.session_state["guest_mode"] = True
+        st.rerun()
+    login_tab, signup_tab = st.tabs(["Sign in", "Create account"])
+
+    with login_tab:
+        with st.form("login_form"):
+            email = st.text_input("Email", autocomplete="email")
+            password = st.text_input(
+                "Password",
+                type="password",
+                autocomplete="current-password",
+                max_chars=128,
+            )
+            submitted = st.form_submit_button("Sign in", width="stretch")
+        if submitted:
+            try:
+                user = authenticate_user(email, password)
+            except ValueError as exc:
+                st.error(str(exc))
+            except AtlasNotConfiguredError:
+                st.error(
+                    "MongoDB Atlas is not configured yet. The app owner must add "
+                    "MONGODB_URI under Streamlit Cloud → App settings → Secrets."
+                )
+            except PyMongoError:
+                st.error("Could not sign in right now. Check the Atlas setup and app logs.")
+            else:
+                st.session_state["authenticated_user"] = user
+                st.rerun()
+
+    with signup_tab:
+        st.caption("Use an email you can access. Password must be at least 12 characters.")
+        with st.form("signup_form"):
+            email = st.text_input("Email address", autocomplete="email", key="signup_email")
+            password = st.text_input(
+                "Create password",
+                type="password",
+                autocomplete="new-password",
+                max_chars=128,
+                key="signup_password",
+            )
+            confirmation = st.text_input(
+                "Confirm password",
+                type="password",
+                autocomplete="new-password",
+                max_chars=128,
+                key="signup_confirmation",
+            )
+            submitted = st.form_submit_button("Create account", width="stretch")
+        if submitted:
+            if password != confirmation:
+                st.error("The passwords do not match.")
+            else:
+                try:
+                    user = register_user(email, password)
+                except (ValueError, EmailAlreadyRegisteredError) as exc:
+                    st.error(str(exc))
+                except AtlasNotConfiguredError:
+                    st.error(
+                        "MongoDB Atlas is not configured yet. The app owner must add "
+                        "MONGODB_URI under Streamlit Cloud → App settings → Secrets."
+                    )
+                except PyMongoError:
+                    st.error("Could not create the account. Check the Atlas setup and app logs.")
+                else:
+                    st.session_state["authenticated_user"] = user
+                    st.success("Account created.")
+                    st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def require_atlas() -> bool:
+    try:
+        get_database()
+    except AtlasNotConfiguredError:
+        st.error("MongoDB Atlas is not configured for this app.")
+        st.markdown(
+            "Add `MONGODB_URI` to Streamlit Cloud → **App settings → Secrets** "
+            "and set `MONGODB_DATABASE = \"dukaan_dost\"`, then reboot the app."
+        )
+        st.code(
+            'MONGODB_URI = "mongodb+srv://<database-user>:<password>@<cluster-host>/?retryWrites=true&w=majority"\n'
+            'MONGODB_DATABASE = "dukaan_dost"',
+            language="toml",
+        )
+        st.caption(
+            "Create an Atlas database user, allow the Streamlit app to reach the cluster, "
+            "and never commit the real connection string to GitHub."
+        )
+        return False
+    except PyMongoError:
+        st.error(
+            "Could not connect to MongoDB Atlas. Check the connection string, database "
+            "user/password, Atlas network access rules, and app logs."
+        )
+        return False
+    return True
+
+
+def render_sidebar(
+    data: pd.DataFrame, user: dict[str, str] | None
+) -> tuple[str, pd.DataFrame, str, dict | None]:
+    if user is not None:
+        if st.sidebar.button(f"Sign out · {user['email']}", width="stretch"):
+            st.session_state.clear()
+            st.rerun()
+    else:
+        st.sidebar.caption("Guest demo · example data only")
+        if st.sidebar.button("Sign in or create account", width="stretch"):
+            st.session_state.pop("guest_mode", None)
+            st.rerun()
+
     language_options = list(LANGUAGES)
     current_language = st.session_state.get("language_choice", "English")
     if current_language not in language_options:
@@ -93,35 +230,86 @@ def render_sidebar(data: pd.DataFrame) -> tuple[str, pd.DataFrame, str]:
         key="language_choice",
         help=tr(current_language, "language_help"),
     )
-    st.sidebar.markdown("## ✨ Northstar")
+    st.sidebar.markdown("## 🛍️ Dukaan Dost")
     st.sidebar.caption(tr(language, "workspace"))
+    pages = ["overview", "explore", "forecast", "reports"]
+    if user is not None:
+        pages.append("database")
     page = st.sidebar.radio(
         tr(language, "workspace"),
-        ["overview", "explore", "forecast", "reports"],
+        pages,
         format_func=lambda key: tr(language, key),
         label_visibility="collapsed",
         key="nav_page",
     )
     st.sidebar.divider()
     st.sidebar.markdown(f"#### {tr(language, 'data_source')}")
+    saved_dataset = None
+    if user is not None:
+        try:
+            saved_dataset = load_sales_dataset(user["id"])
+        except (AccountNotFoundError, DatasetValidationError) as exc:
+            st.sidebar.error(str(exc))
+        except PyMongoError:
+            st.sidebar.error("Could not load your saved shop data. Check the app logs.")
+
+    if saved_dataset is not None:
+        saved_frame, saved_metadata = saved_dataset
+        use_saved = st.sidebar.checkbox("Use my saved data", value=True)
+        if use_saved:
+            data = saved_frame
+            data_source = saved_metadata["file_name"]
+        else:
+            data_source = tr(language, "sample")
+            data = load_default_data()
+    else:
+        saved_metadata = None
+        data_source = tr(language, "sample")
+        data = load_default_data()
+
     upload = st.sidebar.file_uploader(
         tr(language, "upload"),
         type=["csv"],
         help=tr(language, "upload_help"),
     )
-    if upload is None:
-        data_source = tr(language, "sample")
-        data = load_default_data()
-    else:
+    if upload is not None:
         try:
             data = parse_uploaded_data(upload.getvalue())
             data_source = upload.name
         except (UnicodeDecodeError, pd.errors.ParserError, ValueError) as exc:
             st.sidebar.error(tr(language, "csv_error", error=exc))
-            data = load_default_data()
-            data_source = tr(language, "sample")
+            upload = None
     data = normalize_data(data)
     st.sidebar.text(tr(language, "showing", source=data_source, count=indian_number(len(data))))
+    missing_required = [column for column in ("Sales", "Profit") if column not in data]
+    if missing_required and upload is not None:
+        st.sidebar.warning(
+            f"Add these required columns before saving: {', '.join(missing_required)}."
+        )
+    if upload is not None and user is not None:
+        if st.sidebar.button(
+            "💾 Save uploaded CSV to my account",
+            disabled=bool(missing_required) or data.empty,
+            width="stretch",
+        ):
+            try:
+                metadata = save_sales_dataset(user["id"], data, upload.name)
+            except (
+                AccountNotFoundError,
+                DatasetCleanupError,
+                DatasetValidationError,
+                ValueError,
+            ) as exc:
+                st.sidebar.error(str(exc))
+            except PyMongoError:
+                st.sidebar.error("Could not save the CSV to Atlas. Check the app logs.")
+            else:
+                st.sidebar.success(
+                    f"Saved {metadata['row_count']:,} rows to your account. "
+                    "Clear the upload to use the saved copy."
+                )
+    elif upload is not None:
+        st.sidebar.caption("Guest uploads are temporary and are not saved.")
 
     filtered = data
     with st.sidebar.expander(tr(language, "filters"), expanded=False):
@@ -157,7 +345,37 @@ def render_sidebar(data: pd.DataFrame) -> tuple[str, pd.DataFrame, str]:
     st.sidebar.divider()
     st.sidebar.caption(tr(language, "footer"))
     st.sidebar.caption(tr(language, "currency_notice"))
-    return page, filtered, language
+    return page, filtered, language, saved_metadata
+
+
+def database_page(user: dict[str, str], saved_metadata: dict | None) -> None:
+    hero(
+        "MongoDB Atlas & your saved data",
+        "Your account's saved shop CSV is kept separately from other accounts.",
+        "database",
+    )
+    st.success("MongoDB Atlas is connected for this session.")
+    st.caption(f"Signed in as {user['email']}. Connection credentials are never shown here.")
+
+    if saved_metadata is None:
+        st.info("You do not have a saved CSV yet. Upload one in the sidebar and choose “Save uploaded CSV to my account”.")
+        return
+
+    st.markdown(f"**Saved file:** {saved_metadata['file_name']}")
+    st.markdown(f"**Rows:** {indian_number(saved_metadata['row_count'])}")
+    st.markdown(f"**Columns:** {', '.join(saved_metadata['columns'])}")
+    uploaded_at = saved_metadata.get("uploaded_at")
+    if uploaded_at is not None:
+        st.markdown(f"**Saved at:** {uploaded_at.strftime('%Y-%m-%d %H:%M UTC')}")
+    st.warning("Saving a new CSV replaces your currently saved dataset. Deleting it cannot be undone.")
+    if st.button("🗑️ Delete my saved CSV", type="secondary"):
+        try:
+            delete_active_dataset(user["id"])
+        except (AccountNotFoundError, PyMongoError):
+            st.error("Could not delete the saved dataset. Check the app logs.")
+        else:
+            st.success("Your saved CSV was deleted.")
+            st.rerun()
 
 
 def executive_summary(data: pd.DataFrame, language: str = "English") -> str:
@@ -522,8 +740,30 @@ def reports_page(data: pd.DataFrame, language: str) -> None:
         )
 
 
+authenticated_user = st.session_state.get("authenticated_user")
+if authenticated_user:
+    if not require_atlas():
+        st.stop()
+    try:
+        authenticated_user = get_user(authenticated_user.get("id", ""))
+    except PyMongoError:
+        st.error("Could not verify your account with Atlas. Check the app logs.")
+        st.stop()
+    if authenticated_user is None:
+        st.session_state.clear()
+        st.warning("Your account could not be found. Please sign in again.")
+        st.stop()
+    st.session_state["authenticated_user"] = authenticated_user
+else:
+    authenticated_user = None
+    if not st.session_state.get("guest_mode"):
+        render_auth_page()
+        st.stop()
+
 try:
-    page, filtered_data, selected_language = render_sidebar(load_default_data())
+    page, filtered_data, selected_language, saved_metadata = render_sidebar(
+        load_default_data(), authenticated_user
+    )
 except (FileNotFoundError, OSError, pd.errors.ParserError) as exc:
     st.error(tr("English", "sample_error", error=exc))
     st.stop()
@@ -534,6 +774,8 @@ elif page == "explore":
     explore_page(filtered_data, selected_language)
 elif page == "forecast":
     forecast_page(filtered_data, selected_language)
+elif page == "database" and authenticated_user is not None:
+    database_page(authenticated_user, saved_metadata)
 else:
     reports_page(filtered_data, selected_language)
 

@@ -1,0 +1,4 @@
+Order ID,Order Date,Region,Category,Product Name,Sales,Profit,Quantity,Discount,Segment
+BILL-1001,2026-09-14,Pune West,Groceries,Rice 5 kg,1250.00,180.00,1,0.05,Retail
+BILL-1002,2026-09-14,Pune East,Household,Detergent,420.00,65.00,2,0.10,Retail
+BILL-1003,2026-09-15,Nashik,Snacks,Biscuits,300.00,-20.00,3,0,Wholesale
