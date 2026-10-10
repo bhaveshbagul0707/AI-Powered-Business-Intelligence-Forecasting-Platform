@@ -112,14 +112,22 @@ def render_auth_page() -> None:
         st.rerun()
     if not CONFIG.mongodb_uri:
         st.info(
-            "Guest demo is ready. To create accounts and save private shop data, "
-            "the app owner must configure MongoDB Atlas first."
+            "MongoDB Atlas is not connected, so account sign-in, account creation, "
+            "and saving shop data are unavailable. You can still explore the dashboard "
+            "as a guest with example data."
         )
         st.caption(
-            "For local use, put MONGODB_URI in the project-root .env file. "
-            "For Streamlit Cloud, add it under App settings → Secrets. "
-            ".env.example is only a template and is not loaded."
+            "For local use, add MONGODB_URI to the project-root .env file. "
+            "For Streamlit Cloud, add it under App settings → Secrets and reboot. "
+            "The .env.example file is only a template and is not loaded."
         )
+        st.code(
+            'MONGODB_URI = "mongodb+srv://<database-user>:<password>@<cluster-host>/?retryWrites=true&w=majority"\n'
+            'MONGODB_DATABASE = "dukaan_dost"',
+            language="toml",
+        )
+        return
+
     login_tab, signup_tab = st.tabs(["Sign in", "Create account"])
 
     with login_tab:
