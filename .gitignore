@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+.env
+.env.*
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local app data / generated output
+reports/
+*.pdf
+api key.txt
+*.log
+
+# Optional local notebooks outputs
+.ipynb_checkpoints/
+
+# If you want to keep model files tracked, do not ignore them.
+# model/

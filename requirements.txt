@@ -1,0 +1,10 @@
+venv\Scripts\activate
+streamlit
+pandas
+numpy
+matplotlib
+scikit-learn
+joblib
+python-dotenv
+groq
+reportlab
