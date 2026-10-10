@@ -126,7 +126,6 @@ def render_auth_page() -> None:
             'MONGODB_DATABASE = "dukaan_dost"',
             language="toml",
         )
-        return
 
     login_tab, signup_tab = st.tabs(["Sign in", "Create account"])
 
@@ -139,7 +138,11 @@ def render_auth_page() -> None:
                 autocomplete="current-password",
                 max_chars=128,
             )
-            submitted = st.form_submit_button("Sign in", width="stretch")
+            submitted = st.form_submit_button(
+                "Sign in",
+                width="stretch",
+                disabled=not bool(CONFIG.mongodb_uri),
+            )
         if submitted:
             try:
                 user = authenticate_user(email, password)
@@ -175,7 +178,11 @@ def render_auth_page() -> None:
                 max_chars=128,
                 key="signup_confirmation",
             )
-            submitted = st.form_submit_button("Create account", width="stretch")
+            submitted = st.form_submit_button(
+                "Create account",
+                width="stretch",
+                disabled=not bool(CONFIG.mongodb_uri),
+            )
         if submitted:
             if password != confirmation:
                 st.error("The passwords do not match.")
