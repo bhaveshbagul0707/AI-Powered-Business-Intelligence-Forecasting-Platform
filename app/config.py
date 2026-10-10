@@ -18,26 +18,24 @@ def _get_groq_api_key() -> str:
 
 
 def _get_setting(name: str, default: str = "") -> str:
-    value = os.getenv(name, "").strip()
-    if value:
-        return value
     try:
         value = st.secrets.get(name, "")
-        if value:
-            return str(value).strip()
-        group_name, _, setting_name = name.partition("_")
-        secret_group = st.secrets.get(group_name.lower(), {})
-        if hasattr(secret_group, "get"):
-            value = secret_group.get(
-                name,
-                secret_group.get(
-                    setting_name.lower(),
-                    secret_group.get(setting_name.upper(), ""),
-                ),
-            )
-        return str(value or default).strip()
+        if not value:
+            group_name, _, setting_name = name.partition("_")
+            secret_group = st.secrets.get(group_name.lower(), {})
+            if hasattr(secret_group, "get"):
+                value = secret_group.get(
+                    name,
+                    secret_group.get(
+                        setting_name.lower(),
+                        secret_group.get(setting_name.upper(), ""),
+                    ),
+                )
     except FileNotFoundError:
-        return default
+        value = ""
+    if value:
+        return str(value).strip()
+    return os.getenv(name, "").strip() or default
 
 
 @dataclass(frozen=True)

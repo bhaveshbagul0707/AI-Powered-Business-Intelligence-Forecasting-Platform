@@ -106,6 +106,7 @@ def render_auth_page() -> None:
     st.title("🛍️ Dukaan Dost")
     st.subheader("Your shop's numbers, made easier.")
     st.write("Sign in to keep your shop data private to your account.")
+    st.caption(f"MongoDB URI detected: {bool(CONFIG.mongodb_uri)}")
     if st.button("Continue as guest with example data", width="stretch"):
         st.session_state["guest_mode"] = True
         st.rerun()
