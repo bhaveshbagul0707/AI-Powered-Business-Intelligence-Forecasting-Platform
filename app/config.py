@@ -30,7 +30,7 @@ class AppConfig:
     layout: str = "wide"
 
     groq_api_key: str = field(default_factory=_get_groq_api_key)
-    groq_model: str = "llama-3.1-8b-instant"
+    groq_model: str = "openai/gpt-oss-20b"
     groq_temperature: float = 0.4
 
     model_dir: Path = ROOT_DIR / "model"
