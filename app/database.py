@@ -62,6 +62,10 @@ def get_database():
     uri = CONFIG.mongodb_uri
     if not uri:
         raise AtlasNotConfiguredError("MONGODB_URI is not configured.")
+    if "<" in uri or ">" in uri:
+        raise AtlasNotConfiguredError(
+            "MONGODB_URI still contains template placeholders. Replace them with the Atlas values."
+        )
     if not uri.startswith(("mongodb://", "mongodb+srv://")):
         raise AtlasNotConfiguredError("MONGODB_URI must be a MongoDB connection URI.")
 
