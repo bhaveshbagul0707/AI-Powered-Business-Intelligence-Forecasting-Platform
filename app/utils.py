@@ -6,9 +6,9 @@ from datetime import datetime
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+import matplotlib
 import pandas as pd
 from groq import Groq
-from formatting import indian_currency
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
@@ -31,10 +31,12 @@ def _register_report_font(text: str) -> str | None:
     if not any(ord(character) > 127 for character in text):
         return None
     arabic_text = any(0x0600 <= ord(character) <= 0x08FF for character in text)
+    bundled_dejavu = Path(matplotlib.get_data_path()) / "fonts" / "ttf" / "DejaVuSans.ttf"
     if arabic_text:
         font_candidates = [
             Path("C:/Windows/Fonts/arial.ttf"),
             Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+            bundled_dejavu,
         ]
         font_name = "NorthstarArabic"
     else:
@@ -42,6 +44,7 @@ def _register_report_font(text: str) -> str | None:
             Path("C:/Windows/Fonts/Nirmala.ttc"),
             Path("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"),
             Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+            bundled_dejavu,
         ]
         font_name = "NorthstarIndic"
     if font_name in pdfmetrics.getRegisteredFontNames():

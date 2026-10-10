@@ -123,9 +123,15 @@ Important:
 4. Create a new app
 5. Connect the repository
 6. Set the main file path to `app/app.py`
-7. Add the environment variable:
-   - `GROQ_API_KEY`
+7. Open the app's **Settings → Secrets** and add:
+
+   ```toml
+   GROQ_API_KEY = "your_groq_api_key_here"
+   ```
+
 8. Deploy
+
+AI suggestions are optional. The rest of the dashboard works without this key. Never publish the real key in GitHub or screenshots.
 
 ### Option 2: Local deployment
 

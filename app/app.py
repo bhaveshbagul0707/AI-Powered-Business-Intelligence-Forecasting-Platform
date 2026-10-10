@@ -500,6 +500,8 @@ def reports_page(data: pd.DataFrame, language: str) -> None:
                 "language": language,
                 "text": f"{local_report}\n\n{tr(language, 'ai_result')}\n{ai_result}",
             }
+        if not CONFIG.groq_api_key:
+            st.caption(tr(language, "ai_missing"))
     with col2:
         st.download_button(
             tr(language, "download_pdf"),
