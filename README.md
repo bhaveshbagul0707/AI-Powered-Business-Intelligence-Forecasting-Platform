@@ -84,14 +84,21 @@ AI-Powered Business Intelligence & Forecasting Platform/
 3. Install dependencies
 4. Run the app
 
-```bash
+```powershell
+deactivate  # Run only if another virtual environment is currently active
 python -m venv .venv
-source .venv/bin/activate   # Linux/macOS
-.venv\Scripts\activate      # Windows PowerShell
-
-pip install -r requirements.txt
-streamlit run app/app.py
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m streamlit run app\app.py
 ```
+
+On Windows, run the app with Streamlit rather than `python app.py`: the entrypoint is `app\app.py`, and it uses Streamlit's runtime. If PowerShell blocks activation, allow it for the current terminal only with:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+```
+
+Use either the existing `venv` or the new `.venv`; do not create/activate a virtual environment inside another active one. Make sure installation and launch use the same environment by using `python -m pip` and `python -m streamlit`.
 
 ## Local environment variables
 
