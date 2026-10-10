@@ -19,7 +19,7 @@ The app owner must configure MongoDB Atlas before anyone can create an account:
    Replace all placeholders with the real Atlas connection details. If a password contains special characters, URL-encode it in the URI.
 5. Save Secrets and reboot the app.
 
-Never send the real URI/password in a screenshot, chat, README, or GitHub commit. For local development, place these variables in a private `.env` file at the project root.
+Never send the real URI/password in a screenshot, chat, README, or GitHub commit. For local development, place these variables in a private `.env` file at the project root. `.env.example` is only a placeholder template: the app does not load values from it.
 
 ## Create your account and sign in
 

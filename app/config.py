@@ -14,13 +14,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 
 
 def _get_groq_api_key() -> str:
-    api_key = os.getenv("GROQ_API_KEY", "").strip()
-    if api_key:
-        return api_key
-    try:
-        return str(st.secrets.get("GROQ_API_KEY", "")).strip()
-    except FileNotFoundError:
-        return ""
+    return _get_setting("GROQ_API_KEY")
 
 
 def _get_setting(name: str, default: str = "") -> str:
@@ -28,7 +22,20 @@ def _get_setting(name: str, default: str = "") -> str:
     if value:
         return value
     try:
-        return str(st.secrets.get(name, default)).strip()
+        value = st.secrets.get(name, "")
+        if value:
+            return str(value).strip()
+        group_name, _, setting_name = name.partition("_")
+        secret_group = st.secrets.get(group_name.lower(), {})
+        if hasattr(secret_group, "get"):
+            value = secret_group.get(
+                name,
+                secret_group.get(
+                    setting_name.lower(),
+                    secret_group.get(setting_name.upper(), ""),
+                ),
+            )
+        return str(value or default).strip()
     except FileNotFoundError:
         return default
 

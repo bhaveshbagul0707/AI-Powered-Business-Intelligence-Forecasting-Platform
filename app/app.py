@@ -109,6 +109,16 @@ def render_auth_page() -> None:
     if st.button("Continue as guest with example data", width="stretch"):
         st.session_state["guest_mode"] = True
         st.rerun()
+    if not CONFIG.mongodb_uri:
+        st.info(
+            "Guest demo is ready. To create accounts and save private shop data, "
+            "the app owner must configure MongoDB Atlas first."
+        )
+        st.caption(
+            "For local use, put MONGODB_URI in the project-root .env file. "
+            "For Streamlit Cloud, add it under App settings → Secrets. "
+            ".env.example is only a template and is not loaded."
+        )
     login_tab, signup_tab = st.tabs(["Sign in", "Create account"])
 
     with login_tab:
@@ -128,8 +138,9 @@ def render_auth_page() -> None:
                 st.error(str(exc))
             except AtlasNotConfiguredError:
                 st.error(
-                    "MongoDB Atlas is not configured yet. The app owner must add "
-                    "MONGODB_URI under Streamlit Cloud → App settings → Secrets."
+                    "MongoDB Atlas is not configured. The project .env.example is "
+                    "only a template: set MONGODB_URI in local .env or Streamlit "
+                    "Cloud → App settings → Secrets, then restart/reboot the app."
                 )
             except PyMongoError:
                 st.error("Could not sign in right now. Check the Atlas setup and app logs.")
@@ -166,8 +177,9 @@ def render_auth_page() -> None:
                     st.error(str(exc))
                 except AtlasNotConfiguredError:
                     st.error(
-                        "MongoDB Atlas is not configured yet. The app owner must add "
-                        "MONGODB_URI under Streamlit Cloud → App settings → Secrets."
+                        "MongoDB Atlas is not configured. The project .env.example is "
+                        "only a template: set MONGODB_URI in local .env or Streamlit "
+                        "Cloud → App settings → Secrets, then restart/reboot the app."
                     )
                 except PyMongoError:
                     st.error("Could not create the account. Check the Atlas setup and app logs.")

@@ -108,7 +108,7 @@ Use either the existing `venv` or the new `.venv`; do not create/activate a virt
 
 ## Local environment variables
 
-Create a `.env` file in the project root using `.env.example` as a template. Replace the sample values; do not commit the real `.env`.
+Create a `.env` file in the project root using `.env.example` as a template. Replace the sample values; do not commit the real `.env`. The app loads `.env`, not `.env.example`.
 
 ```env
 GROQ_API_KEY=your_groq_api_key_here
